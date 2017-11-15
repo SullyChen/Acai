@@ -60,7 +60,7 @@ void Update()
                     node_present = true;
                     break;
                 }
-
+            
             //if the node isn't in the chain, add it
             if (!node_present)
             {
@@ -78,11 +78,11 @@ void Draw()
 {
     //clear window
     window->clear(sf::Color::White);
-
+    
     //draw buttons
     for (int i = 0; i < buttons.size(); i++)
         buttons[i].Draw(window);
-
+    
     //highlight selected nodes
     for (int i = 0; i < node_chain.size(); i++)
     {
@@ -91,7 +91,7 @@ void Draw()
             color = sf::Color::Blue;
         else
             color = sf::Color::Red;
-
+        
         //get bounding box
         sf::Rect<float> rect = node_chain[i]->Message.getGlobalBounds();
         sf::RectangleShape rectangle;
@@ -101,11 +101,11 @@ void Draw()
         rectangle.setSize(sf::Vector2f(rect.width + 60, rect.height + 30));
         window->draw(rectangle);
     }
-
+    
     //Draw nodes
     for (int i = 0; i < nodes.size(); i++)
         nodes[i].Draw(window);
-
+    
     //Draw links
     for (int i = 0; i < nodes.size(); i++)
     {
@@ -152,9 +152,9 @@ string Prompt(sf::String message)
     text.setStyle(sf::Text::Regular);
     text.setPosition(20, window->getSize().y - text.getGlobalBounds().height);
     text.setCharacterSize(22);
-
+    
     sf::String response = "";
-
+    
     bool exit = false;
     while (!exit)
     {
@@ -165,13 +165,13 @@ string Prompt(sf::String message)
             //close if close signal detected
             if (event.type == sf::Event::Closed)
                 window->close();
-
+            
             if(event.type == sf::Event::TextEntered)
             {
                 if (event.text.unicode < 128 && event.text.unicode > 28)
                     response += event.text.unicode;
             }
-
+            
             else if(event.type == sf::Event::KeyPressed)
             {
                 if(event.key.code == sf::Keyboard::BackSpace && response.getSize() > 0) // delete the last character
@@ -180,14 +180,14 @@ string Prompt(sf::String message)
                     exit = true;
             }
         }
-
+        
         text.setString(message + response);
-
+        
         Draw();
         window->draw(text);
         window->display();
     }
-
+    
     return response.toAnsiString();
 }
 
@@ -223,7 +223,7 @@ void CreateImageInput()
     n.Name = "x" + to_string(numInputs);
     n.Command = n.Name + " = Input(shape=(" + to_string(numLayers) + ", " +
     to_string(dimX) + ", " + to_string(dimY) + "))\n";
-
+    
     /*//reshape flat input
      n.Command += n.Name + " = Reshape((" + to_string(numLayers) +
      ", " + to_string(dimX) + ", " + to_string(dimY) + "), "
@@ -310,12 +310,12 @@ void LinkNodes()
                 node_present = true;
                 node_chain[0]->Children.erase(node_chain[0]->Children.begin() + i);
             }
-
-
+        
+        
         //if not, add it
         if (!node_present)
             node_chain[0]->Children.push_back(node_chain[1]);
-
+        
         //check if the parent node is already added, and remove it if so
         node_present = false;
         for (int i = 0; i < node_chain[1]->Parents.size(); i++)
@@ -324,7 +324,7 @@ void LinkNodes()
                 node_present = true;
                 node_chain[1]->Parents.erase(node_chain[1]->Parents.begin() + i);
             }
-
+        
         //if not, add it
         if (!node_present)
         {
@@ -332,7 +332,7 @@ void LinkNodes()
             if (node_chain[0]->Type == "image" && node_chain[1]->Type == "activation")
                 node_chain[1]->Type = "image";
         }
-
+        
         //cout << node_chain[0]->Children.size() << node_chain[1]->Children.size()
         //   << node_chain[0]->Parents.size() << node_chain[1]->Parents.size() << endl;
     }
@@ -346,13 +346,13 @@ void RemoveNode(Node* n)
         for (int j = 0; j < n->Parents[i]->Children.size(); j++)
             if (n == n->Parents[i]->Children[j])
                 n->Parents[i]->Children.erase(n->Parents[i]->Children.begin() + j);
-
+    
     //remove the node from the childrens' list of parents
     for (int i = 0; i < n->Children.size(); i++)
         for (int j = 0; j < n->Children[i]->Parents.size(); j++)
             if (n == n->Children[i]->Parents[j])
                 n->Children[i]->Parents.erase(n->Children[i]->Parents.begin() + j);
-
+    
     //remove the node from the list of nodes
     for (int i = 0; i < nodes.size(); i++)
         if (&nodes[i] == n)
@@ -419,15 +419,15 @@ string GenerateModelCode()
 {
     node_chain.clear();
     //string of python code
-    string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape\n";
+    string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape, Flatten, concatenate\n";
     code += "from keras.models import Model\n";
     code += "import Keras.backend as K\n";
     code += "import numpy as np\n\n";
-
+    
     code += "K.set_image_dim_ordering('th')\n\n";
-
+    
     code += "def AcaiModel():\n\t";
-
+    
     //generate inputs
     for (int i = 0; i < nodes.size(); i++)
         //start by iterating through the input nodes
@@ -436,15 +436,15 @@ string GenerateModelCode()
             code += nodes[i].Command + "\t"; //create the input
             nodes[i].Processed = true;
         }
-
+    
     //start by iterating through the input nodes and process each recursively
     for (int i = 0; i < nodes.size(); i++)
         if (nodes[i].Parents.size() == 0)
             code += RecurseNode(&nodes[i], code);
-
+    
     for (int i = 0; i < nodes.size(); i++)
         nodes[i].Processed = false;
-
+    
     //find the names of the inputs and outputs
     vector<string> inputs;
     vector<string> outputs;
@@ -453,10 +453,10 @@ string GenerateModelCode()
             inputs.push_back(nodes[i].Name);
         else if (nodes[i].Children.size() == 0)
             outputs.push_back(nodes[i].Name);
-
+    
     if (inputs.size() == 0)
         cout << "Error! No input nodes!" << endl;
-
+    
     //write the model declaration code
     string inputString = "";
     string outputString = "";
@@ -474,7 +474,7 @@ string GenerateModelCode()
         return "";
     else
         inputString = inputs[0];
-
+    
     if (outputs.size() > 1)
     {
         outputString = "[";
@@ -504,7 +504,7 @@ void PrintCode()
         path += "/Desktop";
     else
         path += "Desktop";
-
+    
     string savepath = Prompt("Path to save python file? [Default is " + path + "]: ");
     while  (true)
     {
@@ -514,14 +514,14 @@ void PrintCode()
                 savepath += "/model.py";
             else
                 savepath += "model.py";
-
+            
             ofstream f;
             f.open(savepath);
             f << code;
             f.close();
-
+            
             ifstream test(savepath);
-
+            
             if (!test.good())
                 savepath = Prompt("Invalid path! Path to save python file? [Default is " + path + "]: ");
             else
@@ -535,38 +535,38 @@ void PrintCode()
             f.close();
             break;
         }
-
+        
     }
 }
 
 void Train()
 {
     string code = GenerateModelCode();
-
+    
     //create model checkpointer
     code += "\nfrom keras.callbacks import ModelCheckpoint\n";
     code += "checkpointer = ModelCheckpoint(filepath='weights.hdf5', verbose=1, save_best_only=True)\n";
-
+    
     //get the desired working path from the user
     string path = "";
     cout << "Save path?: ";
     cin >> path;
     if (path[path.length() - 1] != '/')
         path += "/";
-
+    
     //get number of data sample
     int numTrainSamples = 0;
     int numTestSamples = 0;
-
+    
     cout << "How many train data samples are there?: ";
     cin >> numTrainSamples;
-
+    
     cout << "How many test data samples are there?: ";
     cin >> numTestSamples;
-
+    
     //save the model architecture
     code += "\nmodel.save('" + path + "model.h5')\n";
-
+    
     vector<string> inputs;
     vector<string> outputs;
     for (int i = 0; i < nodes.size(); i++)
@@ -578,7 +578,7 @@ void Train()
             code += nodes[i].Name + "_trainx = np.fromfile(\"" + path + filename + "\", np.float32)\n";
             code += nodes[i].Name + "_trainx = np.reshape(" + nodes[i].Name + "_trainx, ("
             + to_string(numTrainSamples) + ", -1))\n";
-
+            
             cout << "Specify .dat test file for " + nodes[i].Message.getString().toAnsiString() << " input: ";
             cin >> filename;
             code += nodes[i].Name + "_testx = np.fromfile(\"" + path + filename + "\", np.float32)\n";
@@ -586,7 +586,7 @@ void Train()
             + to_string(numTestSamples) + ", -1))\n";
             inputs.push_back(nodes[i].Name);
         }
-
+    
     for (int i = 0; i < nodes.size(); i++)
         if (nodes[i].Children.size() == 0)
         {
@@ -596,16 +596,16 @@ void Train()
             code += nodes[i].Name + "_trainy = np.fromfile(\"" + path + filename + "\", np.float32)\n";
             code += nodes[i].Name + "_trainy = np.reshape(" + nodes[i].Name + "_trainy, ("
             + to_string(numTrainSamples) + ", -1))";
-
+            
             cout << "Specify .dat test file for " + nodes[i].Message.getString().toAnsiString() << " output: ";
             cin >> filename;
             code += nodes[i].Name + "_testy = np.fromfile(\"" + path + filename + "\", np.float32)\n";
             code += nodes[i].Name + "_testy = np.reshape(" + nodes[i].Name + "_testy, ("
             + to_string(numTestSamples) + ", -1))";
-
+            
             outputs.push_back(nodes[i].Name);
         }
-
+    
     //write the train and test input and output strings
     string trainInputString = "";
     string testInputString = "";
@@ -629,7 +629,7 @@ void Train()
         trainInputString = inputs[0] + "_trainx";
         testInputString = inputs[0] + "_testx";
     }
-
+    
     string trainOutputString = "";
     string testOutputString = "";
     if (outputs.size() > 1)
@@ -652,7 +652,7 @@ void Train()
         trainOutputString = outputs[0] + "_trainy";
         testOutputString = outputs[0] + "_testy";
     }
-
+    
     code += "\nmodel.fit(" + trainInputString + ", " + trainOutputString
     + ", batch_size=128, epochs=100, verbose=1, validation_data=("
     + testInputString + ", " + testOutputString + "))\n";
@@ -683,14 +683,14 @@ int main(int argc, char* argv[])
     sf::RenderWindow Window(sf::VideoMode(width, height), title_string);
     Window.setFramerateLimit(120);
     window = &Window;
-
+    
     //load font
     if (!font.loadFromFile("/Library/Fonts/Arial.ttf"))
     {
         cout << "Couldn't load font!" << endl;
         return -1;
     }
-
+    
     //main update loop
     while (window->isOpen())
     {
@@ -714,7 +714,7 @@ int main(int argc, char* argv[])
                     LinkNodes();
             }
         }
-
+        
         //Update and draw
         Update();
         Draw();
