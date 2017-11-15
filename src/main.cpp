@@ -421,7 +421,7 @@ string GenerateModelCode()
     //string of python code
     string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape, Flatten, concatenate\n";
     code += "from keras.models import Model\n";
-    code += "import Keras.backend as K\n";
+    code += "import keras.backend as K\n";
     code += "import numpy as np\n\n";
     
     code += "K.set_image_dim_ordering('th')\n\n";
