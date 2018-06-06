@@ -420,7 +420,7 @@ string GenerateModelCode()
 {
     node_chain.clear();
     //string of python code
-    string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape, Flatten, concatenate, Elu, LeakyRelu, MaxPooling2D, AveragePooling2D\n";
+    string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape, Flatten, concatenate, ELU, LeakyReLU, MaxPooling2D, AveragePooling2D\n";
     code += "from keras.models import Model\n";
     code += "import keras.backend as K\n";
     code += "import numpy as np\n\n";
@@ -671,9 +671,9 @@ void ProcessChunk(std::string s)
             n.Name = "x" + to_string(nodes.size());
             n.Command = n.Name + " = Activation(\"" + activation + "\")";
             if (activation == "elu")
-                n.Command = n.Name + " = Activation(ELU())";
+                n.Command = n.Name + " = ELU()";
             if (activation == "leaky_relu")
-                n.Command = n.Name + " = Activation(LeakyReLU())";
+                n.Command = n.Name + " = LeakyReLU()";
             nodes.push_back(n);
             cout << "Added activation" << endl;
         }
@@ -783,7 +783,8 @@ void PrintCode()
 {
     node_chain.clear();
     string code = GenerateModelCode();
-    string path = getenv("HOME");
+    //string path = getenv("HOME");
+    string path = "";
     if (path[path.length() - 1] != '/')
         path += "/Desktop";
     else
