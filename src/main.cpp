@@ -36,6 +36,7 @@ void CreateActivation(); //Creates an activation
 void LinkNodes(); //Links two nodes together
 void Train(); //Trains network
 void RemoveNode(Node* n); //Removes a node from the graph
+void ParseModelString(string);
 string Prompt(sf::String message);
 string RecurseNode(Node* n, string name); //Used to process graph
 string GenerateModelCode(); //Generates the code for the Keras Model
@@ -60,7 +61,7 @@ void Update()
                     node_present = true;
                     break;
                 }
-            
+
             //if the node isn't in the chain, add it
             if (!node_present)
             {
@@ -78,11 +79,11 @@ void Draw()
 {
     //clear window
     window->clear(sf::Color::White);
-    
+
     //draw buttons
     for (int i = 0; i < buttons.size(); i++)
         buttons[i].Draw(window);
-    
+
     //highlight selected nodes
     for (int i = 0; i < node_chain.size(); i++)
     {
@@ -91,7 +92,7 @@ void Draw()
             color = sf::Color::Blue;
         else
             color = sf::Color::Red;
-        
+
         //get bounding box
         sf::Rect<float> rect = node_chain[i]->Message.getGlobalBounds();
         sf::RectangleShape rectangle;
@@ -101,11 +102,11 @@ void Draw()
         rectangle.setSize(sf::Vector2f(rect.width + 60, rect.height + 30));
         window->draw(rectangle);
     }
-    
+
     //Draw nodes
     for (int i = 0; i < nodes.size(); i++)
         nodes[i].Draw(window);
-    
+
     //Draw links
     for (int i = 0; i < nodes.size(); i++)
     {
@@ -152,9 +153,9 @@ string Prompt(sf::String message)
     text.setStyle(sf::Text::Regular);
     text.setPosition(20, window->getSize().y - text.getGlobalBounds().height);
     text.setCharacterSize(22);
-    
+
     sf::String response = "";
-    
+
     bool exit = false;
     while (!exit)
     {
@@ -165,13 +166,13 @@ string Prompt(sf::String message)
             //close if close signal detected
             if (event.type == sf::Event::Closed)
                 window->close();
-            
+
             if(event.type == sf::Event::TextEntered)
             {
                 if (event.text.unicode < 128 && event.text.unicode > 28)
                     response += event.text.unicode;
             }
-            
+
             else if(event.type == sf::Event::KeyPressed)
             {
                 if(event.key.code == sf::Keyboard::BackSpace && response.getSize() > 0) // delete the last character
@@ -180,14 +181,14 @@ string Prompt(sf::String message)
                     exit = true;
             }
         }
-        
+
         text.setString(message + response);
-        
+
         Draw();
         window->draw(text);
         window->display();
     }
-    
+
     return response.toAnsiString();
 }
 
@@ -223,7 +224,7 @@ void CreateImageInput()
     n.Name = "x" + to_string(numInputs);
     n.Command = n.Name + " = Input(shape=(" + to_string(numLayers) + ", " +
     to_string(dimX) + ", " + to_string(dimY) + "))\n";
-    
+
     /*//reshape flat input
      n.Command += n.Name + " = Reshape((" + to_string(numLayers) +
      ", " + to_string(dimX) + ", " + to_string(dimY) + "), "
@@ -310,12 +311,12 @@ void LinkNodes()
                 node_present = true;
                 node_chain[0]->Children.erase(node_chain[0]->Children.begin() + i);
             }
-        
-        
+
+
         //if not, add it
         if (!node_present)
             node_chain[0]->Children.push_back(node_chain[1]);
-        
+
         //check if the parent node is already added, and remove it if so
         node_present = false;
         for (int i = 0; i < node_chain[1]->Parents.size(); i++)
@@ -324,7 +325,7 @@ void LinkNodes()
                 node_present = true;
                 node_chain[1]->Parents.erase(node_chain[1]->Parents.begin() + i);
             }
-        
+
         //if not, add it
         if (!node_present)
         {
@@ -332,7 +333,7 @@ void LinkNodes()
             if (node_chain[0]->Type == "image" && node_chain[1]->Type == "activation")
                 node_chain[1]->Type = "image";
         }
-        
+
         //cout << node_chain[0]->Children.size() << node_chain[1]->Children.size()
         //   << node_chain[0]->Parents.size() << node_chain[1]->Parents.size() << endl;
     }
@@ -346,13 +347,13 @@ void RemoveNode(Node* n)
         for (int j = 0; j < n->Parents[i]->Children.size(); j++)
             if (n == n->Parents[i]->Children[j])
                 n->Parents[i]->Children.erase(n->Parents[i]->Children.begin() + j);
-    
+
     //remove the node from the childrens' list of parents
     for (int i = 0; i < n->Children.size(); i++)
         for (int j = 0; j < n->Children[i]->Parents.size(); j++)
             if (n == n->Children[i]->Parents[j])
                 n->Children[i]->Parents.erase(n->Children[i]->Parents.begin() + j);
-    
+
     //remove the node from the list of nodes
     for (int i = 0; i < nodes.size(); i++)
         if (&nodes[i] == n)
@@ -419,15 +420,15 @@ string GenerateModelCode()
 {
     node_chain.clear();
     //string of python code
-    string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape, Flatten, concatenate\n";
+    string code = "from keras.layers import Input, Dense, Conv2D, Activation, Reshape, Flatten, concatenate, Elu, LeakyRelu, MaxPooling2D, AveragePooling2D\n";
     code += "from keras.models import Model\n";
     code += "import keras.backend as K\n";
     code += "import numpy as np\n\n";
-    
+
     code += "K.set_image_dim_ordering('th')\n\n";
-    
+
     code += "def AcaiModel():\n\t";
-    
+
     //generate inputs
     for (int i = 0; i < nodes.size(); i++)
         //start by iterating through the input nodes
@@ -436,15 +437,15 @@ string GenerateModelCode()
             code += nodes[i].Command + "\t"; //create the input
             nodes[i].Processed = true;
         }
-    
+
     //start by iterating through the input nodes and process each recursively
     for (int i = 0; i < nodes.size(); i++)
         if (nodes[i].Parents.size() == 0)
             code += RecurseNode(&nodes[i], code);
-    
+
     for (int i = 0; i < nodes.size(); i++)
         nodes[i].Processed = false;
-    
+
     //find the names of the inputs and outputs
     vector<string> inputs;
     vector<string> outputs;
@@ -453,10 +454,10 @@ string GenerateModelCode()
             inputs.push_back(nodes[i].Name);
         else if (nodes[i].Children.size() == 0)
             outputs.push_back(nodes[i].Name);
-    
+
     if (inputs.size() == 0)
         cout << "Error! No input nodes!" << endl;
-    
+
     //write the model declaration code
     string inputString = "";
     string outputString = "";
@@ -474,7 +475,7 @@ string GenerateModelCode()
         return "";
     else
         inputString = inputs[0];
-    
+
     if (outputs.size() > 1)
     {
         outputString = "[";
@@ -495,6 +496,289 @@ string GenerateModelCode()
     return code;
 }
 
+void ProcessChunk(std::string s)
+{
+	vector<std::string> chunks;
+	string chunk;
+	for (int i = 0; i < s.length(); i++)
+	{
+		if (s[i] == '+')
+        {
+			chunks.push_back(chunk);
+			cout << chunk << endl;
+			chunk = "";
+        }
+		else
+			chunk += s[i];
+        if (i == s.length() - 1)
+        {
+            chunks.push_back(chunk);
+        }
+	}
+
+	for (int i = 0; i < chunks.size(); i++)
+    {
+        if (chunks[i].find('x') != string::npos)
+        {
+            cout << "Processing conv input" << endl;
+            //process conv input
+            string dim = "";
+            vector<int> dims;
+            for (int j = 0; j < chunks[i].length(); j++)
+            {
+                if (chunks[i][j] == 'x')
+                {
+                    dims.push_back(atoi(dim.c_str()));
+                    dim = "";
+                }
+                else
+                    dim += chunks[i][j];
+                if (j == chunks[i].size() - 1)
+                {
+                    dims.push_back(atoi(dim.c_str()));
+                }
+            }
+
+            int pos_x = 500;
+            int pos_y = 50;
+
+
+            if (nodes.size() != 0)
+            {
+                sf::Rect<float> rect = nodes[nodes.size() - 1].Message.getGlobalBounds();
+                pos_x = rect.left;
+                pos_y = rect.top + 50;
+                if (pos_y > 600)
+                {
+                    pos_x += 100;
+                    pos_y = 50;
+                }
+            }
+
+            Node n(sf::Vector2f(pos_x, pos_y), sf::String("Input " + to_string(dims[2])) + "x"
+                   + sf::String(to_string(dims[0]) + "x" + to_string(dims[1])),
+                   &font, 18, sf::Color::Black);
+            n.Type = "image";
+            n.Name = "x" + to_string(numInputs);
+            n.Command = n.Name + " = Input(shape=(" + to_string(dims[2]) + ", " +
+                        to_string(dims[0]) + ", " + to_string(dims[1]) + "))\n";
+            nodes.push_back(n);
+            cout << "Added conv input" << endl;
+            numInputs++;
+        }
+        else if (chunks[i].find('c') != string::npos)
+        {
+            cout << "Processing conv layer " << chunks[i] << endl;
+            //process conv layer
+            string left = "";
+            string right = "";
+            for (int j = 0; j < chunks[i].length(); j++)
+            {
+                if (chunks[i][j] == 'c')
+                {
+                    left = right;
+                    right = "";
+                }
+                else
+                    right += chunks[i][j];
+            }
+            cout << left << " " << right << endl;
+            unsigned int stride = 1;
+            /*if (chunks[i].length() > i + 1)
+            {
+                if (chunks[i+1].find("stride") != string::npos)
+                {
+                    stride = atoi(chunks[i+1].substr(5, 3).c_str());
+                }
+                i++;
+            }*/
+            unsigned int numFilters = atoi(left.c_str());
+            unsigned int kernelSize = atoi(right.c_str());
+
+            int pos_x = 500;
+            int pos_y = 50;
+            if (nodes.size() != 0)
+            {
+                sf::Rect<float> rect = nodes[nodes.size() - 1].Message.getGlobalBounds();
+                pos_x = rect.left;
+                pos_y = rect.top + 50;
+                if (pos_y > 600)
+                {
+                    pos_x += 100;
+                    pos_y = 50;
+                }
+            }
+            Node n(sf::Vector2f(pos_x, pos_y), sf::String(to_string(numFilters)) + "x"
+                   + sf::String(to_string(kernelSize) + "x" + to_string(kernelSize)
+                   + "conv " + to_string(stride) + "x" + to_string(stride) + "stride"),
+                   &font, 18, sf::Color::Black);
+            n.Type = "image";
+            n.Name = "x" + to_string(nodes.size());
+            n.Command = n.Name + " = Conv2D(" + to_string(numFilters) + ", ("
+                        + to_string(kernelSize) + ", " + to_string(kernelSize) + ")"
+                        + ", strides=(" + to_string(stride) + "," + to_string(stride) + "))";
+            nodes.push_back(n);
+            cout << "Added conv layer" << endl;
+
+        }
+        else if(chunks[i].find('n') != string::npos)
+        {
+            //process dense layer
+            int dim = atoi(chunks[i].substr(0, chunks[i].length() - 1).c_str());
+            sf::Rect<float> rect = nodes[nodes.size() -1 ].Message.getGlobalBounds();
+            int pos_x = 500;
+            int pos_y = 50;
+            if (nodes.size() != 0)
+            {
+                sf::Rect<float> rect = nodes[nodes.size() - 1].Message.getGlobalBounds();
+                pos_x = rect.left;
+                pos_y = rect.top + 50;
+                if (pos_y > 600)
+                {
+                    pos_x += 100;
+                    pos_y = 50;
+                }
+            }
+            Node n(sf::Vector2f(pos_x, pos_y), sf::String(to_string(dim)) + "nn",
+                   &font, 18, sf::Color::Black);
+                    n.Type = "flat";
+                    n.Name = "x" + to_string(nodes.size());
+                    n.Command = n.Name + " = Dense(" + to_string(dim) + ")";
+            nodes.push_back(n);
+            cout << "Added dense layer" << endl;
+        }
+        else if (chunks[i] == "relu" || chunks[i] == "tanh" || chunks[i] == "sigmoid"
+                 || chunks[i] == "softmax" || chunks[i] == "elu" || chunks[i] == "leaky_relu")
+        {
+            sf::Rect<float> rect = nodes[nodes.size() -1 ].Message.getGlobalBounds();
+            int pos_x = 500;
+            int pos_y = 50;
+            if (nodes.size() != 0)
+            {
+                sf::Rect<float> rect = nodes[nodes.size() - 1].Message.getGlobalBounds();
+                pos_x = rect.left;
+                pos_y = rect.top + 50;
+                if (pos_y > 600)
+                {
+                    pos_x += 100;
+                    pos_y = 50;
+                }
+            }
+            string name = "Node " + to_string(nodes.size());
+            string activation = chunks[i];
+            Node n(sf::Vector2f(pos_x, pos_y), sf::String(activation), &font, 18, sf::Color::Black);
+            n.Type = "activation";
+            n.Name = "x" + to_string(nodes.size());
+            n.Command = n.Name + " = Activation(\"" + activation + "\")";
+            if (activation == "elu")
+                n.Command = n.Name + " = Activation(ELU())";
+            if (activation == "leaky_relu")
+                n.Command = n.Name + " = Activation(LeakyReLU())";
+            nodes.push_back(n);
+            cout << "Added activation" << endl;
+        }
+        else if (chunks[i].find("ap") != string::npos || chunks[i].find("mp") != string::npos)
+        {
+            sf::Rect<float> rect = nodes[nodes.size() -1 ].Message.getGlobalBounds();
+            int pos_x = 500;
+            int pos_y = 50;
+            if (nodes.size() != 0)
+            {
+                sf::Rect<float> rect = nodes[nodes.size() - 1].Message.getGlobalBounds();
+                pos_x = rect.left;
+                pos_y = rect.top + 50;
+                if (pos_y > 600)
+                {
+                    pos_x += 100;
+                    pos_y = 50;
+                }
+            }
+            string name = "Node " + to_string(nodes.size());
+            string poolSize = chunks[i].substr(2, chunks[i].length()).c_str();
+            Node n(sf::Vector2f(pos_x, pos_y), sf::String(chunks[i]), &font, 18, sf::Color::Black);
+            n.Type = "activation";
+            n.Name = "x" + to_string(nodes.size());
+            if (chunks[i].find("ap") != string::npos)
+                n.Command = n.Name + " = MaxPooling2D(pool_size=(" + poolSize + ", " + poolSize + "))";
+            else if (chunks[i].find("mp") != string::npos)
+                n.Command = n.Name + " = AveragePooling2D(pool_size=(" + poolSize + ", " + poolSize + "))";
+            nodes.push_back(n);
+            cout << "Added activation" << endl;
+        }
+    }
+}
+
+void ParseModelString()
+{
+    string s = Prompt("Enter model string: ");
+	std::string chunk;
+	unsigned int numChunks = 0;
+	for (int i = 0; i < s.length(); i++)
+	{
+		if (s[i] == '-')
+        {
+            if (chunk.find('*') != string::npos)
+            {
+                int numLayers = atoi(chunk.substr(0, chunk.find('*')).c_str());
+                cout << numLayers << endl;
+                chunk = chunk.substr(chunk.find('(') + 1, chunk.find(')') - chunk.find('(') - 1);
+                for (int j = 0; j < numLayers; j++)
+                {
+                    ProcessChunk(chunk);
+                    if (chunk.find('+') != string::npos)
+                        numChunks++;
+                    numChunks++;
+                }
+            }
+			else
+            {
+                ProcessChunk(chunk);
+                if (chunk.find('+') != string::npos)
+                    numChunks++;
+                numChunks++;
+            }
+			cout << chunk << endl;
+			chunk = "";
+        }
+		else
+			chunk += s[i];
+
+        if (i == s.length() - 1)
+        {
+            if (chunk.find('*') != string::npos)
+            {
+                int numLayers = atoi(chunk.substr(0, chunk.find('*')).c_str());
+                cout << numLayers << endl;
+                chunk = chunk.substr(chunk.find('(') + 1, chunk.find(')') - chunk.find('(') - 1);
+                for (int j = 0; j < numLayers; j++)
+                {
+                    ProcessChunk(chunk);
+                    if (chunk.find('+') != string::npos)
+                        numChunks++;
+                    numChunks++;
+                }
+            }
+			else
+            {
+                ProcessChunk(chunk);
+                if (chunk.find('+') != string::npos)
+                    numChunks++;
+                numChunks++;
+            }
+			cout << chunk << endl;
+			chunk = "";
+        }
+	}
+
+	for (int i = 0; i < numChunks - 1; i++)
+    {
+        node_chain.clear();
+        node_chain.push_back(&nodes[nodes.size() - 2 - i]);
+        node_chain.push_back(&nodes[nodes.size() - 1 - i]);
+        LinkNodes();
+    }
+}
+
 void PrintCode()
 {
     node_chain.clear();
@@ -504,7 +788,7 @@ void PrintCode()
         path += "/Desktop";
     else
         path += "Desktop";
-    
+
     string savepath = Prompt("Path to save python file? [Default is " + path + "]: ");
     while  (true)
     {
@@ -514,14 +798,14 @@ void PrintCode()
                 savepath += "/model.py";
             else
                 savepath += "model.py";
-            
+
             ofstream f;
             f.open(savepath);
             f << code;
             f.close();
-            
+
             ifstream test(savepath);
-            
+
             if (!test.good())
                 savepath = Prompt("Invalid path! Path to save python file? [Default is " + path + "]: ");
             else
@@ -535,38 +819,38 @@ void PrintCode()
             f.close();
             break;
         }
-        
+
     }
 }
 
 void Train()
 {
     string code = GenerateModelCode();
-    
+
     //create model checkpointer
     code += "\nfrom keras.callbacks import ModelCheckpoint\n";
     code += "checkpointer = ModelCheckpoint(filepath='weights.hdf5', verbose=1, save_best_only=True)\n";
-    
+
     //get the desired working path from the user
     string path = "";
     cout << "Save path?: ";
     cin >> path;
     if (path[path.length() - 1] != '/')
         path += "/";
-    
+
     //get number of data sample
     int numTrainSamples = 0;
     int numTestSamples = 0;
-    
+
     cout << "How many train data samples are there?: ";
     cin >> numTrainSamples;
-    
+
     cout << "How many test data samples are there?: ";
     cin >> numTestSamples;
-    
+
     //save the model architecture
     code += "\nmodel.save('" + path + "model.h5')\n";
-    
+
     vector<string> inputs;
     vector<string> outputs;
     for (int i = 0; i < nodes.size(); i++)
@@ -578,7 +862,7 @@ void Train()
             code += nodes[i].Name + "_trainx = np.fromfile(\"" + path + filename + "\", np.float32)\n";
             code += nodes[i].Name + "_trainx = np.reshape(" + nodes[i].Name + "_trainx, ("
             + to_string(numTrainSamples) + ", -1))\n";
-            
+
             cout << "Specify .dat test file for " + nodes[i].Message.getString().toAnsiString() << " input: ";
             cin >> filename;
             code += nodes[i].Name + "_testx = np.fromfile(\"" + path + filename + "\", np.float32)\n";
@@ -586,7 +870,7 @@ void Train()
             + to_string(numTestSamples) + ", -1))\n";
             inputs.push_back(nodes[i].Name);
         }
-    
+
     for (int i = 0; i < nodes.size(); i++)
         if (nodes[i].Children.size() == 0)
         {
@@ -596,16 +880,16 @@ void Train()
             code += nodes[i].Name + "_trainy = np.fromfile(\"" + path + filename + "\", np.float32)\n";
             code += nodes[i].Name + "_trainy = np.reshape(" + nodes[i].Name + "_trainy, ("
             + to_string(numTrainSamples) + ", -1))";
-            
+
             cout << "Specify .dat test file for " + nodes[i].Message.getString().toAnsiString() << " output: ";
             cin >> filename;
             code += nodes[i].Name + "_testy = np.fromfile(\"" + path + filename + "\", np.float32)\n";
             code += nodes[i].Name + "_testy = np.reshape(" + nodes[i].Name + "_testy, ("
             + to_string(numTestSamples) + ", -1))";
-            
+
             outputs.push_back(nodes[i].Name);
         }
-    
+
     //write the train and test input and output strings
     string trainInputString = "";
     string testInputString = "";
@@ -629,7 +913,7 @@ void Train()
         trainInputString = inputs[0] + "_trainx";
         testInputString = inputs[0] + "_testx";
     }
-    
+
     string trainOutputString = "";
     string testOutputString = "";
     if (outputs.size() > 1)
@@ -652,7 +936,7 @@ void Train()
         trainOutputString = outputs[0] + "_trainy";
         testOutputString = outputs[0] + "_testy";
     }
-    
+
     code += "\nmodel.fit(" + trainInputString + ", " + trainOutputString
     + ", batch_size=128, epochs=100, verbose=1, validation_data=("
     + testInputString + ", " + testOutputString + "))\n";
@@ -676,21 +960,21 @@ int main(int argc, char* argv[])
                              &font, 18, sf::Color::Black, LinkNodes));
     buttons.push_back(Button(sf::Vector2f(50, 610), "Generate Model Code",
                              &font, 18, sf::Color::Black, PrintCode));
-    buttons.push_back(Button(sf::Vector2f(50, 710), "Train",
-                             &font, 18, sf::Color::Black, Train));
+    buttons.push_back(Button(sf::Vector2f(50, 710), "Input Model String",
+                             &font, 18, sf::Color::Black, ParseModelString));
     //create render window
     sf::String title_string = "Acai";
     sf::RenderWindow Window(sf::VideoMode(width, height), title_string);
     Window.setFramerateLimit(120);
     window = &Window;
-    
+
     //load font
-    if (!font.loadFromFile("/Library/Fonts/Arial.ttf"))
+    if (!font.loadFromFile("./Arial.ttf"))
     {
         cout << "Couldn't load font!" << endl;
         return -1;
     }
-    
+
     //main update loop
     while (window->isOpen())
     {
@@ -714,7 +998,7 @@ int main(int argc, char* argv[])
                     LinkNodes();
             }
         }
-        
+
         //Update and draw
         Update();
         Draw();
